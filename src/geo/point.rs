@@ -88,15 +88,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_coor_fields() {
-        let c = Point::new(1.0, 2.0, 3.0);
-        assert_eq!(c.x, 1.0);
-        assert_eq!(c.y, 2.0);
-        assert_eq!(c.z, 3.0);
+    fn test_point_fields() {
+        let p = Point::new(1.0, 2.0, 3.0);
+        assert_eq!(p.x, 1.0);
+        assert_eq!(p.y, 2.0);
+        assert_eq!(p.z, 3.0);
     }
 
     #[test]
-    fn test_coor_add() {
+    fn test_point_add() {
         let a = Point::new(1.0, 2.0, 3.0);
         let b = Point::new(4.0, 5.0, 6.0);
         let r = a + b;
@@ -106,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn test_coor_sub() {
+    fn test_point_sub() {
         let a = Point::new(4.0, 5.0, 6.0);
         let b = Point::new(1.0, 2.0, 3.0);
         let r = a - b;
@@ -116,25 +116,25 @@ mod tests {
     }
 
     #[test]
-    fn test_coor_scale() {
-        let c = Point::new(2.0, 4.0, 6.0);
-        let r = c / 2.0;
+    fn test_point_scale() {
+        let p = Point::new(2.0, 4.0, 6.0);
+        let r = p / 2.0;
         assert_eq!(r.x, 1.0);
         assert_eq!(r.y, 2.0);
         assert_eq!(r.z, 3.0);
     }
 
     #[test]
-    fn test_coor_div() {
-        let c = Point::new(2.0, 4.0, 6.0);
-        let r = c / 2.0;
+    fn test_point_div() {
+        let p = Point::new(2.0, 4.0, 6.0);
+        let r = p / 2.0;
         assert_eq!(r.x, 1.0);
         assert_eq!(r.y, 2.0);
         assert_eq!(r.z, 3.0);
     }
     #[test]
-    fn test_coor_norm() {
-        let c = Point::new(3.0, 4.0, 0.0);
-        assert!((c.norm() - 5.0).abs() < 1e-9);
+    fn test_point_norm() {
+        let p = Point::new(3.0, 4.0, 0.0);
+        assert!((p.norm() - 5.0).abs() < 1e-9);
     }
 }
