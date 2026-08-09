@@ -1,4 +1,4 @@
-use crate::geo::point::Point;
+use crate::geo::point::{Point, Position};
 
 /// XS is an "extra small" constant used as a zero guard
 pub const XS: f64 = 1e-60;
@@ -43,6 +43,32 @@ pub fn angle(a: &Point, b: &Point) -> f64 {
         (dot_product / n).clamp(-1.0, 1.0)
     }
     .acos()
+}
+
+/// Compute the volume of a tetrahedron defined by four points
+///
+/// The volume is computed as:
+/// V = ( (b-a) × (c-a) ) · (d-a) / 6
+pub fn tetra_volume(a: &Point, b: &Point, c: &Point, d: &Point) -> f64 {
+    let bma = b - a;
+    let cma = c - a;
+    let dma = d - a;
+
+    let cross = cross(&bma, &cma);
+    (cross.x * dma.x + cross.y * dma.y + cross.z * dma.z) / 6.0
+}
+
+pub fn centroid(points: &[impl Position]) -> Option<Point> {
+    if points.is_empty() {
+        return None;
+    }
+    let n = points.len() as f64;
+    Some(
+        points
+            .iter()
+            .fold(Point::zero(), |acc, p| acc.add_position(p))
+            / n,
+    )
 }
 
 #[cfg(test)]
@@ -93,5 +119,33 @@ mod tests {
         assert_eq!(n.x, 0.0);
         assert_eq!(n.y, 0.0);
         assert_eq!(n.z, 0.0);
+    }
+
+    #[test]
+    fn test_tetra_volume() {
+        let coords = vec![
+            Point {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            Point {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            Point {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            Point {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+        ];
+        let v = tetra_volume(&coords[0], &coords[1], &coords[2], &coords[3]);
+        assert!((v - 0.16666667).abs() < 1e-6);
     }
 }

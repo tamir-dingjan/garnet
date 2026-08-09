@@ -1,3 +1,20 @@
+//! Sphere representation and operations.
+//!
+//! This module defines [`Sphere`], a simple 3D sphere type used
+//! throughout the crate for atom and probe representations.
+//! It implements the [`Position`] trait so it can be used generically
+//! alongside types like `Point` in neighbour-search code.
+//!
+//! # Examples
+//!
+//! ```
+//! use garnet::geo::sphere::Sphere;
+//! use garnet::geo::point::Point;
+//!
+//! let s = Sphere::new(Point::new(1.0, 2.0, 3.0), 1.4);
+//! assert_eq!(s.x, 1.0);
+//! ```
+
 use crate::geo::point::{Point, Position};
 
 use std::ops::Deref;
@@ -29,7 +46,7 @@ impl Default for Sphere {
     }
 }
 
-impl Position for &Sphere {
+impl Position for Sphere {
     fn x(&self) -> f64 {
         self.coord.x
     }
