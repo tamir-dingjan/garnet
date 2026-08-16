@@ -1,3 +1,5 @@
+use nalgebra::Vector3;
+
 use crate::geo::point::Point;
 use crate::geo::point::Position;
 use crate::structure::residue::Residue;
@@ -83,26 +85,14 @@ impl Default for Atom {
 }
 
 impl Position for RawAtom {
-    fn x(&self) -> f64 {
-        self.coor.x
-    }
-    fn y(&self) -> f64 {
-        self.coor.y
-    }
-    fn z(&self) -> f64 {
-        self.coor.z
+    fn position(&self) -> Vector3<f64> {
+        self.coor.position()
     }
 }
 
 impl Position for Arc<Atom> {
-    fn x(&self) -> f64 {
-        self.coor.x
-    }
-    fn y(&self) -> f64 {
-        self.coor.y
-    }
-    fn z(&self) -> f64 {
-        self.coor.z
+    fn position(&self) -> Vector3<f64> {
+        self.coor.position()
     }
 }
 
@@ -140,8 +130,8 @@ mod tests {
             r: 1.7,
             ..Atom::default()
         };
-        assert_eq!(a.x, 1.0);
-        assert_eq!(a.y, 2.0);
-        assert_eq!(a.z, 3.0);
+        assert_eq!(a.position().x, 1.0);
+        assert_eq!(a.position().y, 2.0);
+        assert_eq!(a.position().z, 3.0);
     }
 }

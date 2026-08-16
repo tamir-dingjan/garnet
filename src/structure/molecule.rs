@@ -300,7 +300,7 @@ impl Molecule {
     pub fn atoms_overlap(&self, atoms1: &Vec<&Atom>, atoms2: &Vec<&Atom>, tolerance: f64) -> bool {
         for atom1 in atoms1 {
             for atom2 in atoms2 {
-                if distance(atom1, atom2) < tolerance {
+                if distance(&atom1.coor, &atom2.coor) < tolerance {
                     return true;
                 }
             }

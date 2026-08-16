@@ -82,11 +82,11 @@ fn uniform_sphere_points(n: usize) -> Vec<Point> {
         .map(|i| {
             let theta = (1.0 - 2.0 * (i as f64 + 0.5) / n as f64).acos();
             let phi = golden_angle * i as f64;
-            Point {
-                x: theta.sin() * phi.cos(),
-                y: theta.sin() * phi.sin(),
-                z: theta.cos(),
-            }
+            Point::new(
+                theta.sin() * phi.cos(),
+                theta.sin() * phi.sin(),
+                theta.cos(),
+            )
         })
         .collect()
 }
@@ -189,12 +189,18 @@ pub fn mark_surface_atoms(mol: &mut Molecule, probes: &[Vec<Sphere>]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{geo::point::Point, geo::sphere::Sphere, io::pdb::ParseOptions};
+    use crate::{
+        geo::{
+            point::{Point, Position},
+            sphere::Sphere,
+        },
+        io::pdb::ParseOptions,
+    };
 
     /// Call to mock an Atom at position (x,y,z) with radius r
     fn atom_at(x: f64, y: f64, z: f64, r: f64) -> RawAtom {
         RawAtom {
-            coor: Point { x, y, z },
+            coor: Point::new(x, y, z),
             r,
             name: "CA".to_string(),
             resn: "ALA".to_string(),
@@ -214,13 +220,15 @@ mod tests {
         let pts: Vec<Point> = uniform_sphere_points(100);
         assert_eq!(pts.len(), 100, "should return exactly 100 sphere points");
         for pt in pts {
-            let r = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
+            let r = pt.position().x * pt.position().x
+                + pt.position().y * pt.position().y
+                + pt.position().z * pt.position().z;
             assert!(
                 (r - 1.0).abs() < 1e-6,
                 "point ({}, {}, {}) should lie on the unit sphere",
-                pt.x,
-                pt.y,
-                pt.z
+                pt.position().x,
+                pt.position().y,
+                pt.position().z
             );
         }
     }

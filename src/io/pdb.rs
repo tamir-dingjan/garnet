@@ -179,6 +179,8 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
 
 #[cfg(test)]
 mod tests {
+    use crate::geo::point::Position;
+
     use super::*;
 
     // A sample PDB file chunk
@@ -315,9 +317,9 @@ ENDMDL\n";
             .iter()
             .find(|a| a.name == "N" && a.resi == 18)
             .unwrap();
-        assert!((n.x - 159.469).abs() < 0.001);
-        assert!((n.y - 114.021).abs() < 0.001);
-        assert!((n.z - 101.822).abs() < 0.001);
+        assert!((n.position().x - 159.469).abs() < 0.001);
+        assert!((n.position().y - 114.021).abs() < 0.001);
+        assert!((n.position().z - 101.822).abs() < 0.001);
     }
 
     #[test]
@@ -345,9 +347,9 @@ ENDMDL\n";
     fn test_first_model_only() {
         let atoms = parse_pdb_str(TWO_MODELS, &ParseOptions::default()).unwrap();
         assert_eq!(atoms.len(), 1);
-        assert!((atoms[0].x - 1.0).abs() < 0.001);
-        assert!((atoms[0].y - 2.0).abs() < 0.001);
-        assert!((atoms[0].z - 3.0).abs() < 0.001);
+        assert!((atoms[0].position().x - 1.0).abs() < 0.001);
+        assert!((atoms[0].position().y - 2.0).abs() < 0.001);
+        assert!((atoms[0].position().z - 3.0).abs() < 0.001);
     }
 
     #[test]
@@ -360,9 +362,8 @@ ENDMDL\n";
         assert_eq!(atoms.len(), 2);
         assert!(atoms[0].model == 1);
         assert!(atoms[1].model == 2);
-        assert!((atoms[1].x - 4.0).abs() < 0.001);
-        assert!((atoms[1].y - 5.0).abs() < 0.001);
-        assert!((atoms[1].z - 6.0).abs() < 0.001);
+        assert!((atoms[1].position().x - 4.0).abs() < 0.001);
+        assert!((atoms[1].position().y - 5.0).abs() < 0.001);
+        assert!((atoms[1].position().z - 6.0).abs() < 0.001);
     }
-
 }

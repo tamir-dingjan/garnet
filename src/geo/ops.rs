@@ -1,3 +1,5 @@
+use nalgebra::Vector3;
+
 use crate::geo::point::{Point, Position};
 
 /// XS is an "extra small" constant used as a zero guard
@@ -5,23 +7,21 @@ pub const XS: f64 = 1e-60;
 
 /// Euclidean distance between two points
 pub fn distance(a: &impl Position, b: &impl Position) -> f64 {
-    let dx = a.x() - b.x();
-    let dy = a.y() - b.y();
-    let dz = a.z() - b.z();
-    (dx * dx + dy * dy + dz * dz).sqrt()
+    let delta: Vector3<f64> = a.position() - b.position();
+    delta.norm()
 }
 
 /// Dot product of two vectors
 pub fn dot(a: &Point, b: &Point) -> f64 {
-    a.x * b.x + a.y * b.y + a.z * b.z
+    a.position().dot(&b.position())
 }
 
 /// Cross product of two vectors
 pub fn cross(a: &Point, b: &Point) -> Point {
     Point::new(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x,
+        a.position().y * b.position().z - a.position().z * b.position().y,
+        a.position().z * b.position().x - a.position().x * b.position().z,
+        a.position().x * b.position().y - a.position().y * b.position().x,
     )
 }
 
@@ -55,7 +55,10 @@ pub fn tetra_volume(a: &Point, b: &Point, c: &Point, d: &Point) -> f64 {
     let dma = d - a;
 
     let cross = cross(&bma, &cma);
-    (cross.x * dma.x + cross.y * dma.y + cross.z * dma.z) / 6.0
+    (cross.position().x * dma.position().x
+        + cross.position().y * dma.position().y
+        + cross.position().z * dma.position().z)
+        / 6.0
 }
 
 pub fn centroid(points: &[impl Position]) -> Option<Point> {
@@ -101,9 +104,9 @@ mod tests {
         let x = Point::new(1.0, 0.0, 0.0);
         let y = Point::new(0.0, 1.0, 0.0);
         let z = cross(&x, &y);
-        assert!((z.x - 0.0).abs() < 1e-9);
-        assert!((z.y - 0.0).abs() < 1e-9);
-        assert!((z.z - 1.0).abs() < 1e-9);
+        assert!((z.position().x - 0.0).abs() < 1e-9);
+        assert!((z.position().y - 0.0).abs() < 1e-9);
+        assert!((z.position().z - 1.0).abs() < 1e-9);
     }
     #[test]
     fn test_normalize_produces_unit_vector() {
@@ -116,34 +119,18 @@ mod tests {
     fn test_normalize_zero_vector_returns_zero() {
         let v = Point::new(0.0, 0.0, 0.0);
         let n = normalize(&v);
-        assert_eq!(n.x, 0.0);
-        assert_eq!(n.y, 0.0);
-        assert_eq!(n.z, 0.0);
+        assert_eq!(n.position().x, 0.0);
+        assert_eq!(n.position().y, 0.0);
+        assert_eq!(n.position().z, 0.0);
     }
 
     #[test]
     fn test_tetra_volume() {
         let coords = vec![
-            Point {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            Point {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            Point {
-                x: 0.0,
-                y: 1.0,
-                z: 0.0,
-            },
-            Point {
-                x: 0.0,
-                y: 0.0,
-                z: 1.0,
-            },
+            Point::new(0.0, 0.0, 0.0),
+            Point::new(1.0, 0.0, 0.0),
+            Point::new(0.0, 1.0, 0.0),
+            Point::new(0.0, 0.0, 1.0),
         ];
         let v = tetra_volume(&coords[0], &coords[1], &coords[2], &coords[3]);
         assert!((v - 0.16666667).abs() < 1e-6);

@@ -62,7 +62,7 @@ impl<T: Position> Grid<T> {
     pub fn build(&mut self, items: &[T]) {
         self.cells.clear();
         for (idx, item) in items.iter().enumerate() {
-            let key = self.cell_key(item.x(), item.y(), item.z());
+            let key = self.cell_key(item.position().x, item.position().y, item.position().z);
             self.cells.entry(key).or_default().push(idx);
         }
     }
@@ -88,7 +88,11 @@ impl<T: Position> Grid<T> {
         let cell_radius = (radius / self.spacing).ceil() as i32 + 1;
 
         // Get the origin cell position for the search query
-        let origin_cell: CellKey = self.cell_key(position.x(), position.y(), position.z());
+        let origin_cell: CellKey = self.cell_key(
+            position.position().x,
+            position.position().y,
+            position.position().z,
+        );
 
         // Get all cells within the search radius of the origin cell
         let search_cells = origin_cell.get_cells_within_radius(cell_radius);
@@ -96,7 +100,7 @@ impl<T: Position> Grid<T> {
         // Collect the indices into &[T] from the search cells
         let neighbor_indices: Vec<usize> = search_cells
             .into_iter()
-            .filter(|cell| self.cells.get(cell).is_some())
+            .filter(|cell| self.cells.contains_key(cell))
             .flat_map(|cell| self.cells.get(&cell))
             .flatten()
             .cloned()
