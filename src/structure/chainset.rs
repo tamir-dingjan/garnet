@@ -80,14 +80,16 @@ impl FromStr for ChainSet {
         for token in s.split(',') {
             let token = token.trim();
             if token.is_empty() {
+                // An empty token string after trimming, e.g., ",  ,"
                 return Err(ChainSetParseError::EmptyToken(s.to_string()));
             }
             let mut chars = token.chars();
-            let c = chars.next().unwrap();
-            if chars.next().is_some() {
+
+            if chars.clone().count() > 1 {
                 return Err(ChainSetParseError::MultiCharToken(token.to_string()));
+            } else {
+                set.insert(chars.next().unwrap());
             }
-            set.insert(c);
         }
         Ok(ChainSet(set))
     }
