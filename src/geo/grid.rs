@@ -1,7 +1,38 @@
 //! This module owns the grid data structure used for quick neighbour searching.
 
-use crate::geo::point::{Point, Position};
+use crate::geo::{
+    ops::distance,
+    point::{Point, Position},
+};
 use std::collections::HashMap;
+
+#[derive(Eq, Hash, PartialEq)]
+pub struct CellKey {
+    x: i32,
+    y: i32,
+    z: i32,
+}
+
+impl CellKey {
+    /// Returns a list of all cell positions within the given radius relative to self.
+    /// Each of the returned CellKeys can be used as a key into the grid's cell map.
+    fn get_cells_within_radius(self, radius: i32) -> Vec<CellKey> {
+        let mut cells = Vec::new();
+        for i in -radius..=radius {
+            for j in -radius..=radius {
+                for k in -radius..=radius {
+                    let search_cell = CellKey {
+                        x: self.x + i,
+                        y: self.y + j,
+                        z: self.z + k,
+                    };
+                    cells.push(search_cell);
+                }
+            }
+        }
+        cells
+    }
+}
 
 /// The grid of cells is used for quick adjacency lookups
 /// The cells are hashed by their grid coordinates,
@@ -9,7 +40,7 @@ use std::collections::HashMap;
 /// <T> used to populate the grid.
 pub struct Grid<T: Position> {
     pub spacing: f64,
-    cells: HashMap<(i32, i32, i32), Vec<usize>>,
+    cells: HashMap<CellKey, Vec<usize>>,
     _marker: std::marker::PhantomData<T>, // Reference to <T> to apply the same drop rules and lifetime
 }
 
@@ -38,52 +69,46 @@ impl<T: Position> Grid<T> {
 
     /// Returns the cell key for a given position.
     /// The cell key is a tuple of the grid cell indices: (i32, i32, i32).
-    fn cell_key(&self, x: f64, y: f64, z: f64) -> (i32, i32, i32) {
-        (
-            (x / self.spacing).floor() as i32,
-            (y / self.spacing).floor() as i32,
-            (z / self.spacing).floor() as i32,
-        )
+    fn cell_key(&self, x: f64, y: f64, z: f64) -> CellKey {
+        CellKey {
+            x: (x / self.spacing).floor() as i32,
+            y: (y / self.spacing).floor() as i32,
+            z: (z / self.spacing).floor() as i32,
+        }
     }
 
     /// Return the indices of all items within a search radius of
-    /// the given position (qx, qy, qz)
+    /// the given position
     /// This method uses a grid cell search to find neighbors efficiently.
     /// It first gets all the grid cells which cover the search radius,
     /// and then iterates over them to find neighbors within the search radius.
     pub fn neighbors_within(&self, items: &[T], position: Point, radius: f64) -> Vec<usize> {
-        let mut neighbors = Vec::new();
-
         // How many cells are included in the search radius?
         // Add 1 cell to cover items on the edge of a cell.
         let cell_radius = (radius / self.spacing).ceil() as i32 + 1;
 
         // Get the origin cell position for the search query
-        let (oi, oj, ok) = self.cell_key(position.x(), position.y(), position.z());
+        let origin_cell: CellKey = self.cell_key(position.x(), position.y(), position.z());
 
-        // iterate over cells within the search radius of the origin cell
-        for i in -cell_radius..=cell_radius {
-            for j in -cell_radius..=cell_radius {
-                for k in -cell_radius..=cell_radius {
-                    let search_cell = (oi + i, oj + j, ok + k);
-                    // test each of the indices in the search cell for distance from the query
-                    if let Some(indices) = self.cells.get(&search_cell) {
-                        for &idx in indices {
-                            let item = &items[idx];
-                            // compare the euclidean distance to the search radius
-                            let dx = item.x() - position.x();
-                            let dy = item.y() - position.y();
-                            let dz = item.z() - position.z();
-                            let distance = (dx * dx + dy * dy + dz * dz).sqrt();
-                            if distance <= radius {
-                                // the index is within the search radius
-                                neighbors.push(idx);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Get all cells within the search radius of the origin cell
+        let search_cells = origin_cell.get_cells_within_radius(cell_radius);
+
+        // Collect the indices into &[T] from the search cells
+        let neighbor_indices: Vec<usize> = search_cells
+            .into_iter()
+            .filter(|cell| self.cells.get(cell).is_some())
+            .flat_map(|cell| self.cells.get(&cell))
+            .flatten()
+            .cloned()
+            .collect();
+
+        // Test each of the indices in the search cells for distance from the query
+        // Return the indices of neighbors within the search radius
+        let neighbors: Vec<usize> = neighbor_indices
+            .iter()
+            .filter(|idx| distance(&items[**idx], &position) <= radius)
+            .cloned()
+            .collect();
         neighbors
     }
 }

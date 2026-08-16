@@ -4,10 +4,10 @@ use crate::geo::point::{Point, Position};
 pub const XS: f64 = 1e-60;
 
 /// Euclidean distance between two points
-pub fn distance(a: &Point, b: &Point) -> f64 {
-    let dx = a.x - b.x;
-    let dy = a.y - b.y;
-    let dz = a.z - b.z;
+pub fn distance(a: &impl Position, b: &impl Position) -> f64 {
+    let dx = a.x() - b.x();
+    let dy = a.y() - b.y();
+    let dz = a.z() - b.z();
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
