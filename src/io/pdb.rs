@@ -6,6 +6,9 @@ use crate::structure::chainset::ChainSet;
 use anyhow::{Context, Result};
 
 /// Van der Waals radii for each element type
+///
+/// Sourced from:
+/// A. Bondi; van der Waals Volumes and Radii. J. Phys. Chem. 1 March 1964; 68 (3): 441–451. https://doi.org/10.1021/j100785a001
 fn vdw_radius(element: &str) -> f64 {
     match element.to_uppercase().as_str() {
         "C" => 1.70,
