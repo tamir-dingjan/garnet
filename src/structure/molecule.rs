@@ -16,6 +16,7 @@
 /// atoms.
 use crate::geo::grid::Grid;
 use crate::geo::ops::distance;
+use crate::geo::point::Position;
 use crate::io::pdb::{ParseOptions, parse_pdb_file};
 use crate::structure::atom::{Atom, RawAtom};
 use crate::structure::chainset::ChainSet;
@@ -280,9 +281,19 @@ impl Molecule {
         // This check marks the first residue in each overlapping pair
         // as defective
         for pair in order.windows(2) {
-            let left = &grouped[&pair[0]];
-            let right = &grouped[&pair[1]];
-            if self.raw_atoms_overlap(left, right, ATOM_OVERLAP_TOLERANCE) {
+            let left_atoms = &grouped[&pair[0]]
+                .iter()
+                .map(|&idx| &self.raw_atoms[idx])
+                .collect::<Vec<_>>();
+            let right_atoms = &grouped[&pair[1]]
+                .iter()
+                .map(|&idx| &self.raw_atoms[idx])
+                .collect::<Vec<_>>();
+            if self.atoms_overlap(
+                left_atoms.iter(),
+                right_atoms.iter(),
+                ATOM_OVERLAP_TOLERANCE,
+            ) {
                 defective.insert((pair[1].0, pair[1].1));
             }
         }
@@ -290,23 +301,22 @@ impl Molecule {
         defective
     }
 
-    fn raw_atoms_overlap(&self, left: &[usize], right: &[usize], tolerance: f64) -> bool {
-        for &left_idx in left {
-            for &right_idx in right {
-                if distance(&self.raw_atoms[left_idx], &self.raw_atoms[right_idx]) < tolerance {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
     /// Utility to check if two collections of atoms overlap spatially
     /// within the given tolerance
-    pub fn atoms_overlap(&self, atoms1: &Vec<&Atom>, atoms2: &Vec<&Atom>, tolerance: f64) -> bool {
+    /// The T: Position trait bound allows this to be used for RawAtom and Atom types
+    pub fn atoms_overlap<'a, T>(
+        &self,
+        atoms1: impl Iterator<Item = &'a T>,
+        atoms2: impl Iterator<Item = &'a T> + Clone,
+        tolerance: f64,
+    ) -> bool
+    where
+        T: Position + 'a,
+    {
         for atom1 in atoms1 {
-            for atom2 in atoms2 {
-                if distance(&atom1.coor, &atom2.coor) < tolerance {
+            // Clone for atoms2 resets the iterator to its original position for each loop
+            for atom2 in atoms2.clone() {
+                if distance(&atom1, &atom2) < tolerance {
                     return true;
                 }
             }
