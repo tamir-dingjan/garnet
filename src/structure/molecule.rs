@@ -327,7 +327,7 @@ mod tests {
         x: f64,
     ) -> String {
         format!(
-            "{record:<6}{serial:>5} {atom_name:^4} {residue_name:>3} {chain_id}{residue_number:>4}    {x:>8.3}{y:>8.3}{z:>8.3}  1.00 20.00           C",
+            "{record:<6}{serial:>5} {atom_name:^4} {residue_name:>3} {chain_id}{residue_number:>4}    {x:>8.3}{y:>8.3}{z:>8.3}  1.00 20.00           C ",
             y = 0.0,
             z = 0.0,
         )

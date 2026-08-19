@@ -28,6 +28,21 @@ use crate::structure::chainset::ChainSet;
 use crate::structure::residue::ResidueName;
 use anyhow::{Context, Result};
 
+/// PDB file line selection ranges
+const PDB_LINE_RECORD_TYPE: std::ops::Range<usize> = 0..6;
+const PDB_LINE_ATOM_NAME: std::ops::Range<usize> = 12..16;
+const PDB_LINE_ALT_LOC: std::ops::Range<usize> = 16..17;
+const PDB_LINE_RESIDUE_NAME: std::ops::Range<usize> = 17..20;
+const PDB_LINE_CHAIN_ID: usize = 21;
+const PDB_LINE_RESIDUE_NUMBER: std::ops::Range<usize> = 22..26;
+const PDB_LINE_X_COORD: std::ops::Range<usize> = 31..39;
+const PDB_LINE_Y_COORD: std::ops::Range<usize> = 39..47;
+const PDB_LINE_Z_COORD: std::ops::Range<usize> = 47..55;
+const PDB_LINE_ELEMENT: std::ops::Range<usize> = 77..79;
+const PDB_LINE_MIN_LENGTH: usize = 6;
+const PDB_LINE_PRE_COORD_LENGTH: usize = 54;
+const PDB_LINE_RECORD_TYPE_LENGTH: usize = 6;
+
 /// Supported file extensions
 enum SupportedExt {
     Pdb,
@@ -126,11 +141,11 @@ fn vdw_radius(element: Element) -> f64 {
 fn element_from_line(line: &str) -> Element {
     let e: &str = if line.len() >= 78 {
         // Columns 77-78 hold the element symbol, if present
-        line[76..78].trim() // 0-indexed
+        line[PDB_LINE_ELEMENT].trim() // 0-indexed
     } else if line.len() >= 16 {
         // Fallback to the first character of the atom name
         // Last resort is an empty string
-        &line[12..16].trim()[..1]
+        &line[PDB_LINE_ATOM_NAME].trim()[..1]
     } else {
         ""
     };
@@ -190,15 +205,21 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
     for line in content.lines() {
         // Get the record type of this line
         // Guard the type check behind a length check
-        if line.len() < 6 {
+        if line.len() < PDB_LINE_MIN_LENGTH {
             continue;
         }
 
-        let record: PDBRecordType = line[..6].trim().parse().unwrap_or(PDBRecordType::UNKNOWN);
+        let record: PDBRecordType = line[PDB_LINE_RECORD_TYPE]
+            .trim()
+            .parse()
+            .unwrap_or(PDBRecordType::UNKNOWN);
 
         match record {
             PDBRecordType::MODEL => {
-                model_num = line[6..].trim().parse().unwrap_or(model_num + 1);
+                model_num = line[PDB_LINE_RECORD_TYPE_LENGTH..]
+                    .trim()
+                    .parse()
+                    .unwrap_or(model_num + 1);
                 continue;
             }
             PDBRecordType::ENDMDL => {
@@ -217,29 +238,34 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
 
         if !matches!(record, PDBRecordType::ATOM | PDBRecordType::HETATM) {
             continue; // If the line is neither ATOM nor HETATM, skip
-        } else if line.len() < 54 {
+        } else if line.len() < PDB_LINE_PRE_COORD_LENGTH {
             continue; // If the line is too short to contain coords, skip
         }
 
         // Parse the fixed-column fields
-        let name = line.get(12..16).unwrap_or("    ").trim().to_string();
-        let altloc = line.get(16..17).unwrap_or(" ").to_string();
-        let resn: ResidueName = ResidueName::parse(line.get(17..20).unwrap_or("").trim());
-        let chain_id = line.chars().nth(21).unwrap_or(' ');
+        let name = line
+            .get(PDB_LINE_ATOM_NAME)
+            .unwrap_or("    ")
+            .trim()
+            .to_string();
+        let altloc = line.get(PDB_LINE_ALT_LOC).unwrap_or(" ").to_string();
+        let resn: ResidueName =
+            ResidueName::parse(line.get(PDB_LINE_RESIDUE_NAME).unwrap_or("").trim());
+        let chain_id = line.chars().nth(PDB_LINE_CHAIN_ID).unwrap_or(' ');
         let resi: i32 = line
-            .get(22..26)
+            .get(PDB_LINE_RESIDUE_NUMBER)
             .and_then(|s| s.trim().parse().ok())
             .unwrap_or(0);
         let x: f64 = line
-            .get(30..38)
+            .get(PDB_LINE_X_COORD)
             .and_then(|s| s.trim().parse().ok())
             .unwrap_or(0.0);
         let y: f64 = line
-            .get(38..46)
+            .get(PDB_LINE_Y_COORD)
             .and_then(|s| s.trim().parse().ok())
             .unwrap_or(0.0);
         let z: f64 = line
-            .get(46..54)
+            .get(PDB_LINE_Z_COORD)
             .and_then(|s| s.trim().parse().ok())
             .unwrap_or(0.0);
 
