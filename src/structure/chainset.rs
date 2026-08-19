@@ -47,8 +47,8 @@ impl ChainSet {
         self.0.contains(&c)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = char> + '_ {
-        self.0.iter().copied()
+    pub fn iter(&self) -> impl Iterator<Item = &char> + '_ {
+        self.0.iter()
     }
 
     pub fn len(&self) -> usize {
