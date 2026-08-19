@@ -1,4 +1,24 @@
 //! PDB file parsing utilities.
+//!
+//! PDB files are parsed using the [PDB file format](https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/pdbintro.html).
+//! This module reads the ATOM and HETATM records by selecting specific ranges from each line:
+//! ATOM     24  NE2 GLN H  20A    161.350 108.267 101.636  1.00 37.49           N
+//! HETATM 9089  C1 ACLR R 401     133.505 127.415 142.016  1.00 59.74           C
+//! 0123456789 123456789 123456789 123456789 123456789 123456789 123456789 12345678
+//! [0..6] - the record type (ATOM or HETATM)
+//! [6..11] - the atom serial number
+//! [12..16] - the atom name
+//! [16] - alternate location indicator
+//! [17..20] - the residue name
+//! [21] - the chain ID
+//! [22..26] - the residue number
+//! [26] - residue insertion code
+//! [31..39] - the X coordinate
+//! [39..47] - the Y coordinate
+//! [47..55] - the Z coordinate
+//! [56..60] - the atom occupancy
+//! [61..66] - the atom temperature factor
+//! [77..79] - the element symbol
 
 use std::{path::Path, str::FromStr};
 
