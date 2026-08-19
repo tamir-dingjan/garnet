@@ -1,45 +1,120 @@
 //! PDB file parsing utilities.
 
+use std::{path::Path, str::FromStr};
+
 use crate::geo::point::Point;
 use crate::structure::atom::RawAtom;
 use crate::structure::chainset::ChainSet;
+use crate::structure::residue::ResidueName;
 use anyhow::{Context, Result};
+
+/// Supported file extensions
+enum SupportedExt {
+    Pdb,
+}
+
+impl SupportedExt {
+    fn extension(&self) -> &'static str {
+        match self {
+            SupportedExt::Pdb => "pdb",
+        }
+    }
+}
+
+/// Prefix for hydrogen atom names. Used to skip hydrogens in PDB parsing.
+const HYDROGEN_NAME_PREFIX: &str = "H";
+
+/// Valid alternative location identifier. Other non-blank values are skipped.
+const ALT_LOCATION_ID: &str = "A";
+
+/// Element types for PDB file parsing
+enum Element {
+    C,
+    N,
+    O,
+    S,
+    H,
+    P,
+    F,
+    CL,
+    BR,
+    I,
+    Unknown,
+}
+
+impl FromStr for Element {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "C" => Ok(Element::C),
+            "N" => Ok(Element::N),
+            "O" => Ok(Element::O),
+            "S" => Ok(Element::S),
+            "H" => Ok(Element::H),
+            "P" => Ok(Element::P),
+            "F" => Ok(Element::F),
+            "CL" => Ok(Element::CL),
+            "BR" => Ok(Element::BR),
+            "I" => Ok(Element::I),
+            _ => Ok(Element::Unknown),
+        }
+    }
+}
+
+/// PDB file record types
+enum PDBRecordType {
+    MODEL,
+    ENDMDL,
+    ATOM,
+    HETATM,
+    UNKNOWN,
+}
+
+impl FromStr for PDBRecordType {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "MODEL" => Ok(PDBRecordType::MODEL),
+            "ENDMDL" => Ok(PDBRecordType::ENDMDL),
+            "ATOM" => Ok(PDBRecordType::ATOM),
+            "HETATM" => Ok(PDBRecordType::HETATM),
+            _ => Ok(PDBRecordType::UNKNOWN),
+        }
+    }
+}
 
 /// Van der Waals radii for each element type
 ///
 /// Sourced from:
 /// A. Bondi; van der Waals Volumes and Radii. J. Phys. Chem. 1 March 1964; 68 (3): 441–451. https://doi.org/10.1021/j100785a001
-fn vdw_radius(element: &str) -> f64 {
-    match element.to_uppercase().as_str() {
-        "C" => 1.70,
-        "N" => 1.55,
-        "O" => 1.52,
-        "S" => 1.80,
-        "H" => 1.20,
-        "P" => 1.80,
-        "F" => 1.47,
-        "CL" => 1.75,
-        "BR" => 1.85,
-        "I" => 1.98,
-        _ => 1.70,
+fn vdw_radius(element: Element) -> f64 {
+    match element {
+        Element::C => 1.70,
+        Element::N => 1.55,
+        Element::O => 1.52,
+        Element::S => 1.80,
+        Element::H => 1.20,
+        Element::P => 1.80,
+        Element::F => 1.47,
+        Element::CL => 1.75,
+        Element::BR => 1.85,
+        Element::I => 1.98,
+        Element::Unknown => 1.70,
     }
 }
 
-fn element_from_line(line: &str) -> &str {
-    // Columns 77-78 hold the element symbol, if present
-    if line.len() >= 78 {
-        let e = line[76..78].trim(); // 0-indexed
-        if !e.is_empty() {
-            return e;
-        }
-    }
-    // Fallback to the first character of the atom name
-    // Last resort is an empty string
-    if line.len() >= 16 {
+fn element_from_line(line: &str) -> Element {
+    let e: &str = if line.len() >= 78 {
+        // Columns 77-78 hold the element symbol, if present
+        line[76..78].trim() // 0-indexed
+    } else if line.len() >= 16 {
+        // Fallback to the first character of the atom name
+        // Last resort is an empty string
         &line[12..16].trim()[..1]
     } else {
         ""
-    }
+    };
+    Element::from_str(e).unwrap_or(Element::Unknown)
 }
 
 /// Parsing options control which records are included
@@ -66,10 +141,19 @@ impl Default for ParseOptions {
     }
 }
 
+/// Check for supported file extension
+fn has_supported_extension(path: &str, ext: SupportedExt) -> bool {
+    let path = Path::new(path);
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case(ext.extension()))
+        .unwrap_or(false)
+}
+
 /// Parse ATOM/HETATM records from a PDB file on disk
 pub fn parse_pdb_file(path: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>> {
     // Check the file extension
-    if !path.ends_with(".pdb") {
+    if !has_supported_extension(path, SupportedExt::Pdb) {
         return Err(anyhow::anyhow!("file must have .pdb extension"));
     }
 
@@ -90,26 +174,20 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
             continue;
         }
 
-        let record = line[..6].trim();
-        let mut is_atom: bool = false;
-        let mut is_hetatm: bool = false;
+        let record: PDBRecordType = line[..6].trim().parse().unwrap_or(PDBRecordType::UNKNOWN);
 
         match record {
-            "MODEL" => {
+            PDBRecordType::MODEL => {
                 model_num = line[6..].trim().parse().unwrap_or(model_num + 1);
                 continue;
             }
-            "ENDMDL" => {
+            PDBRecordType::ENDMDL => {
                 if opts.first_model_only {
                     break;
                 }
                 continue;
             }
-            "ATOM" => {
-                is_atom = true;
-            }
-            "HETATM" => {
-                is_hetatm = true;
+            PDBRecordType::HETATM => {
                 if !opts.include_hetero {
                     continue;
                 }
@@ -117,7 +195,7 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
             _ => {}
         }
 
-        if !is_atom && !is_hetatm {
+        if !matches!(record, PDBRecordType::ATOM | PDBRecordType::HETATM) {
             continue; // If the line is neither ATOM nor HETATM, skip
         } else if line.len() < 54 {
             continue; // If the line is too short to contain coords, skip
@@ -126,7 +204,7 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
         // Parse the fixed-column fields
         let name = line.get(12..16).unwrap_or("    ").trim().to_string();
         let altloc = line.get(16..17).unwrap_or(" ").to_string();
-        let resn = line.get(17..20).unwrap_or("   ").trim().to_string();
+        let resn: ResidueName = ResidueName::parse(line.get(17..20).unwrap_or("").trim());
         let chain_id = line.chars().nth(21).unwrap_or(' ');
         let resi: i32 = line
             .get(22..26)
@@ -146,13 +224,13 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
             .unwrap_or(0.0);
 
         // Skip hydrogens ~= atoms whose name begins with "H"
-        if name.starts_with("H") {
+        if name.starts_with(HYDROGEN_NAME_PREFIX) {
             continue;
         }
 
         // Check if this atom is a secondary alternate location ("B", etc)
         // If so, skip it (we only use the primary alternate location, or blank)
-        if altloc != " " && altloc != "A" {
+        if altloc != " " && altloc != ALT_LOCATION_ID {
             continue;
         }
 
@@ -172,7 +250,7 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
             resn,
             chain_id,
             resi,
-            het: is_hetatm,
+            het: matches!(record, PDBRecordType::HETATM),
             model: model_num,
             is_surface: false,
         });
@@ -182,6 +260,8 @@ pub fn parse_pdb_str(content: &str, opts: &ParseOptions) -> Result<Vec<RawAtom>>
 
 #[cfg(test)]
 mod tests {
+    use arrayvec::ArrayString;
+
     use crate::geo::point::Position;
 
     use super::*;
@@ -310,7 +390,10 @@ ENDMDL\n";
         let atoms = parse_pdb_str(SAMPLE, &opts).unwrap();
         let hets: Vec<_> = atoms.iter().filter(|a| a.het).collect();
         assert_eq!(hets.len(), 28);
-        assert_eq!(hets[0].resn, "CLR");
+        assert_eq!(
+            hets[0].resn,
+            ResidueName::Other(ArrayString::from("CLR").unwrap_or_default())
+        );
     }
 
     #[test]
@@ -329,7 +412,7 @@ ENDMDL\n";
     fn test_residue_fields() {
         let atoms = parse_pdb_str(SAMPLE, &ParseOptions::default()).unwrap();
         let ca = atoms.iter().find(|a| a.name == "CA").unwrap();
-        assert_eq!(ca.resn, "ASP");
+        assert_eq!(ca.resn, ResidueName::ASP);
         assert_eq!(ca.chain_id, 'H');
         assert_eq!(ca.resi, 18);
         assert_eq!(ca.het, false);

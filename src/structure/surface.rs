@@ -195,6 +195,8 @@ mod tests {
             sphere::Sphere,
         },
         io::pdb::ParseOptions,
+        structure::molecule::CA_ATOM_NAME,
+        structure::residue::ResidueName,
     };
 
     /// Call to mock an Atom at position (x,y,z) with radius r
@@ -202,8 +204,8 @@ mod tests {
         RawAtom {
             coor: Point::new(x, y, z),
             r,
-            name: "CA".to_string(),
-            resn: "ALA".to_string(),
+            name: CA_ATOM_NAME.to_string(),
+            resn: ResidueName::parse("ALA"),
             chain_id: 'A',
             resi: 1,
             het: false,
@@ -321,8 +323,8 @@ mod tests {
             RawAtom {
                 coor: Point::new(0.0, 0.0, 0.0),
                 r: 1.7,
-                name: "CA".into(),
-                resn: "ALA".into(),
+                name: CA_ATOM_NAME.into(),
+                resn: ResidueName::parse("ALA"),
                 chain_id: 'A',
                 resi: 1,
                 het: false,
@@ -333,7 +335,7 @@ mod tests {
                 coor: Point::new(3.0, 0.0, 0.0),
                 r: 1.7,
                 name: "CB".into(),
-                resn: "ALA".into(),
+                resn: ResidueName::parse("ALA"),
                 chain_id: 'A',
                 resi: 1,
                 het: false,

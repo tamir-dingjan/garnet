@@ -1,5 +1,7 @@
 //! Residue represents a residue in a protein structure.
 
+use arrayvec::ArrayString;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -8,12 +10,148 @@ use crate::geo::ops::centroid;
 use crate::geo::point::Point;
 use crate::structure::atom::Atom;
 
+/// Residue names
+#[derive(Debug, Hash, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ResidueName {
+    ALA,
+    ARG,
+    ASN,
+    ASP,
+    CYS,
+    GLU,
+    GLN,
+    GLY,
+    HIS,
+    ILE,
+    LEU,
+    LYS,
+    MET,
+    PHE,
+    PRO,
+    SER,
+    THR,
+    TRP,
+    TYR,
+    VAL,
+    Other(ArrayString<4>),
+}
+
+impl std::fmt::Display for ResidueName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl ResidueName {
+    pub fn parse(s: &str) -> Self {
+        match s {
+            "ALA" => Self::ALA,
+            "ARG" => Self::ARG,
+            "ASN" => Self::ASN,
+            "ASP" => Self::ASP,
+            "CYS" => Self::CYS,
+            "GLU" => Self::GLU,
+            "GLN" => Self::GLN,
+            "GLY" => Self::GLY,
+            "HIS" => Self::HIS,
+            "ILE" => Self::ILE,
+            "LEU" => Self::LEU,
+            "LYS" => Self::LYS,
+            "MET" => Self::MET,
+            "PHE" => Self::PHE,
+            "PRO" => Self::PRO,
+            "SER" => Self::SER,
+            "THR" => Self::THR,
+            "TRP" => Self::TRP,
+            "TYR" => Self::TYR,
+            "VAL" => Self::VAL,
+            _ => Self::Other(ArrayString::from(s).unwrap_or_default()),
+        }
+    }
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::ALA => "ALA",
+            Self::ARG => "ARG",
+            Self::ASN => "ASN",
+            Self::ASP => "ASP",
+            Self::CYS => "CYS",
+            Self::GLU => "GLU",
+            Self::GLN => "GLN",
+            Self::GLY => "GLY",
+            Self::HIS => "HIS",
+            Self::ILE => "ILE",
+            Self::LEU => "LEU",
+            Self::LYS => "LYS",
+            Self::MET => "MET",
+            Self::PHE => "PHE",
+            Self::PRO => "PRO",
+            Self::SER => "SER",
+            Self::THR => "THR",
+            Self::TRP => "TRP",
+            Self::TYR => "TYR",
+            Self::VAL => "VAL",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+    pub fn one_letter(&self) -> Option<char> {
+        match self {
+            Self::ALA => Some('A'),
+            Self::ARG => Some('R'),
+            Self::ASN => Some('N'),
+            Self::ASP => Some('D'),
+            Self::CYS => Some('C'),
+            Self::GLU => Some('E'),
+            Self::GLN => Some('Q'),
+            Self::GLY => Some('G'),
+            Self::HIS => Some('H'),
+            Self::ILE => Some('I'),
+            Self::LEU => Some('L'),
+            Self::LYS => Some('K'),
+            Self::MET => Some('M'),
+            Self::PHE => Some('F'),
+            Self::PRO => Some('P'),
+            Self::SER => Some('S'),
+            Self::THR => Some('T'),
+            Self::TRP => Some('W'),
+            Self::TYR => Some('Y'),
+            Self::VAL => Some('V'),
+            Self::Other(_) => None,
+        }
+    }
+
+    pub fn min_heavy_atoms(&self) -> Option<usize> {
+        match self {
+            Self::ALA => Some(5),
+            Self::ARG => Some(11),
+            Self::ASN => Some(8),
+            Self::ASP => Some(8),
+            Self::CYS => Some(6),
+            Self::GLU => Some(9),
+            Self::GLN => Some(9),
+            Self::GLY => Some(4),
+            Self::HIS => Some(10),
+            Self::ILE => Some(8),
+            Self::LEU => Some(8),
+            Self::LYS => Some(9),
+            Self::MET => Some(8),
+            Self::PHE => Some(11),
+            Self::PRO => Some(7),
+            Self::SER => Some(6),
+            Self::THR => Some(7),
+            Self::TRP => Some(14),
+            Self::TYR => Some(12),
+            Self::VAL => Some(7),
+            Self::Other(_) => None,
+        }
+    }
+}
+
 /// Represents a residue in a protein structure.
 /// Identity is determined by (chain_id, resi) - residue name
 /// can differ across alignments
 #[derive(Debug, Clone)]
 pub struct Residue {
-    pub resn: String,              // Residue name, max 3 chars e.g. "ALA"
+    pub resn: ResidueName,         // Residue name, max 3 chars e.g. "ALA"
     pub chain_id: char,            // Chain identifier, e.g. 'A' for chain A
     pub resi: i32,                 // Residue sequence number
     pub atoms: Vec<Arc<Atom>>,     // Atoms in this residue
@@ -28,9 +166,8 @@ impl Residue {
         (self.chain_id, self.resi)
     }
 
-    pub fn one_letter(&self) -> char {
-        let residue = self.resn.as_str();
-        three_to_one(residue)
+    pub fn one_letter(&self) -> Option<char> {
+        self.resn.one_letter()
     }
 
     pub fn atoms(&self) -> &[Arc<Atom>] {
@@ -46,7 +183,7 @@ impl Default for Residue {
     fn default() -> Self {
         Residue {
             chain_id: ' ',
-            resn: "   ".to_string(),
+            resn: ResidueName::ALA,
             resi: 0,
             atoms: Vec::new(),
             calpha: None,
@@ -84,65 +221,12 @@ impl Hash for Residue {
     }
 }
 
-/// Convert the three-letter residue name to the one-letter residue name
-/// Returns '?' if the residue name is not recognized
-pub fn three_to_one(residue_name: &str) -> char {
-    match residue_name.trim() {
-        "ALA" => 'A',
-        "ARG" => 'R',
-        "ASN" => 'N',
-        "ASP" => 'D',
-        "CYS" => 'C',
-        "GLU" => 'E',
-        "GLN" => 'Q',
-        "GLY" => 'G',
-        "HIS" => 'H',
-        "ILE" => 'I',
-        "LEU" => 'L',
-        "LYS" => 'K',
-        "MET" => 'M',
-        "PHE" => 'F',
-        "PRO" => 'P',
-        "SER" => 'S',
-        "THR" => 'T',
-        "TRP" => 'W',
-        "TYR" => 'Y',
-        "VAL" => 'V',
-        _ => '?',
-    }
-}
-
-/// Lookup for the minimum number of heavy atoms required for a residue.
-/// Defaults to 0 if the residue name is not recognized
-pub fn min_heavy_atoms(residue: &str) -> usize {
-    match residue.trim() {
-        "ALA" => 5,
-        "ARG" => 11,
-        "ASN" => 8,
-        "ASP" => 8,
-        "CYS" => 6,
-        "GLU" => 9,
-        "GLN" => 9,
-        "GLY" => 4,
-        "HIS" => 10,
-        "ILE" => 8,
-        "LEU" => 8,
-        "LYS" => 9,
-        "MET" => 8,
-        "PHE" => 11,
-        "PRO" => 7,
-        "SER" => 6,
-        "THR" => 7,
-        "TRP" => 14,
-        "TYR" => 12,
-        "VAL" => 7,
-        _ => 0,
-    }
-}
-
 /// Lookup to check if a residue contains an aromatic ring
-pub fn residue_contains_aromatic_ring(resn: &str) -> bool {
-    matches!(resn, "HIS" | "PHE" | "TYR" | "TRP")
+pub fn residue_contains_aromatic_ring(resn: &ResidueName) -> bool {
+    matches!(
+        resn,
+        ResidueName::HIS | ResidueName::PHE | ResidueName::TYR | ResidueName::TRP
+    )
 }
 
 /// Returns the aromatic ring descriptor for the given residue
@@ -150,11 +234,11 @@ pub fn residue_contains_aromatic_ring(resn: &str) -> bool {
 /// which are selected by atom name.
 pub fn aromatic_ring_centroid(atom: &Arc<Atom>) -> Option<Point> {
     // Identify the aromatic ring atoms by the residue name
-    let ring_atoms = match atom.resn.as_str() {
-        "HIS" => vec!["CG", "ND1", "CD2", "CE1", "NE2"],
-        "PHE" => vec!["CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
-        "TYR" => vec!["CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
-        "TRP" => vec!["CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    let ring_atoms = match atom.resn {
+        ResidueName::HIS => vec!["CG", "ND1", "CD2", "CE1", "NE2"],
+        ResidueName::PHE => vec!["CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+        ResidueName::TYR => vec!["CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+        ResidueName::TRP => vec!["CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
         _ => return None,
     };
 
@@ -212,13 +296,13 @@ mod tests {
     fn test_residue_equality_by_chain_and_resi() {
         let r1 = Residue {
             chain_id: 'A',
-            resn: "GLY".to_string(),
+            resn: ResidueName::GLY,
             resi: 42,
             ..Residue::default()
         };
         let r2 = Residue {
             chain_id: 'A',
-            resn: "ALA".to_string(),
+            resn: ResidueName::ALA,
             resi: 42,
             ..Residue::default()
         };

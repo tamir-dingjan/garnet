@@ -19,7 +19,7 @@ use crate::geo::ops::distance;
 use crate::io::pdb::{ParseOptions, parse_pdb_file};
 use crate::structure::atom::{Atom, RawAtom};
 use crate::structure::chainset::ChainSet;
-use crate::structure::residue::{Residue, min_heavy_atoms};
+use crate::structure::residue::{Residue, ResidueName};
 use anyhow::{Context, Result};
 
 use std::collections::{HashMap, HashSet};
@@ -28,6 +28,9 @@ use std::sync::Arc;
 const ATOM_OVERLAP_TOLERANCE: f64 = 1e-3;
 
 const HELPER_GRID_SPACING: f64 = 2.0;
+
+/// C-alpha atom name
+pub const CA_ATOM_NAME: &'static str = "CA";
 
 pub struct Molecule {
     pub path: String,                // Path to the PDB file
@@ -86,10 +89,10 @@ impl Molecule {
         &mut self.raw_atoms
     }
 
-    fn get_residue_atoms(&self, resn: &str, resi: i32, chain_id: char) -> Vec<&RawAtom> {
+    fn get_residue_atoms(&self, resn: &ResidueName, resi: i32, chain_id: char) -> Vec<&RawAtom> {
         self.raw_atoms
             .iter()
-            .filter(|a| a.resn == resn && a.resi == resi && a.chain_id == chain_id)
+            .filter(|a| &a.resn == resn && a.resi == resi && a.chain_id == chain_id)
             .collect()
     }
 
@@ -98,11 +101,11 @@ impl Molecule {
     /// binding site residues.
     fn get_binding_site_residues(
         &self,
-        resn: &str,
+        resn: &ResidueName,
         resi: i32,
         chain_id: char,
         distance: f64,
-    ) -> Result<HashSet<(char, i32, String)>> {
+    ) -> Result<HashSet<(char, i32, ResidueName)>> {
         let mut het_opts = self.opts.clone();
         het_opts.include_hetero = true;
         het_opts.chain_ids = None;
@@ -151,7 +154,7 @@ impl Molecule {
     /// generation for these atoms.
     pub fn hide_atoms_beyond_binding_site(
         &mut self,
-        resn: String,
+        resn: ResidueName,
         resi: i32,
         chain_id: char,
         distance: f64,
@@ -177,9 +180,9 @@ impl Molecule {
         // Group the atoms by their chain/residue/name key
         // Using the group_index HashMap lets us preserve residue ordering
         // in the grouped Vec
-        let mut grouped: Vec<((char, i32, String), Vec<usize>)> = Vec::new();
+        let mut grouped: Vec<((char, i32, ResidueName), Vec<usize>)> = Vec::new();
 
-        let mut group_index: HashMap<(char, i32, String), usize> = HashMap::new();
+        let mut group_index: HashMap<(char, i32, ResidueName), usize> = HashMap::new();
 
         for (idx, atom) in self.raw_atoms.iter().enumerate() {
             let key = (atom.chain_id, atom.resi, atom.resn.clone());
@@ -222,7 +225,7 @@ impl Molecule {
                         })
                     })
                     .collect();
-                let calpha = atoms.iter().find(|atom| atom.name == "CA").cloned();
+                let calpha = atoms.iter().find(|atom| atom.name == CA_ATOM_NAME).cloned();
 
                 Residue {
                     resn: resn.clone(),
@@ -251,8 +254,8 @@ impl Molecule {
     }
 
     fn find_defective_residue_keys(&self) -> HashSet<(char, i32)> {
-        let mut grouped: HashMap<(char, i32, String), Vec<usize>> = HashMap::new();
-        let mut order: Vec<(char, i32, String)> = Vec::new();
+        let mut grouped: HashMap<(char, i32, ResidueName), Vec<usize>> = HashMap::new();
+        let mut order: Vec<(char, i32, ResidueName)> = Vec::new();
         let mut defective = HashSet::new();
 
         for (idx, atom) in self.raw_atoms.iter().enumerate() {
@@ -264,9 +267,12 @@ impl Molecule {
         }
 
         // Mark residues missing atoms as defective
+        // Residues with non-normal names are not marked defective
         for key in &order {
-            if grouped[key].len() < min_heavy_atoms(&key.2) {
-                defective.insert((key.0, key.1));
+            if let Some(num_heavy_atoms) = &key.2.min_heavy_atoms() {
+                if grouped[key].len() < *num_heavy_atoms {
+                    defective.insert((key.0, key.1));
+                }
             }
         }
 
@@ -357,7 +363,7 @@ mod tests {
         }
 
         molecule
-            .hide_atoms_beyond_binding_site("LIG".to_string(), 9, 'Z', 2.0)
+            .hide_atoms_beyond_binding_site(ResidueName::parse("LIG"), 9, 'Z', 2.0)
             .unwrap();
 
         assert!(molecule.raw_atoms()[0].is_surface);
@@ -378,7 +384,7 @@ mod tests {
                 coor: Point::new(0.0, 0.0, 0.0),
                 r: 1.5,
                 name: "N".into(),
-                resn: "GLY".into(),
+                resn: ResidueName::parse("GLY"),
                 chain_id: 'A',
                 resi: 7,
                 het: false,
@@ -389,7 +395,7 @@ mod tests {
                 coor: Point::new(1.0, 0.0, 0.0),
                 r: 1.5,
                 name: "CA".into(),
-                resn: "GLY".into(),
+                resn: ResidueName::parse("GLY"),
                 chain_id: 'A',
                 resi: 7,
                 het: false,
@@ -400,7 +406,7 @@ mod tests {
                 coor: Point::new(2.0, 0.0, 0.0),
                 r: 1.5,
                 name: "C".into(),
-                resn: "GLY".into(),
+                resn: ResidueName::parse("GLY"),
                 chain_id: 'A',
                 resi: 7,
                 het: false,

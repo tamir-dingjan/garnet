@@ -4,9 +4,11 @@ use std::str::FromStr;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::structure::residue::ResidueName;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BindingSiteSpec {
-    pub residue_name: String,
+    pub residue_name: ResidueName,
     pub residue_number: i32,
     pub chain_id: char,
     pub distance_angstroms: f64,
@@ -28,6 +30,13 @@ impl FromStr for BindingSiteSpec {
         if residue_name.is_empty() {
             bail!("binding site residue name cannot be empty");
         }
+
+        // Length check on the residue name - we can only hold 4 characters
+        if residue_name.len() > 4 {
+            bail!("binding site residue name must be at most 4 characters");
+        }
+
+        let residue_name = ResidueName::parse(residue_name);
 
         let residue_number = fields[1]
             .parse::<i32>()
@@ -52,7 +61,7 @@ impl FromStr for BindingSiteSpec {
         }
 
         Ok(Self {
-            residue_name: residue_name.to_string(),
+            residue_name,
             residue_number,
             chain_id,
             distance_angstroms,
@@ -72,6 +81,10 @@ impl fmt::Display for BindingSiteSpec {
 
 #[cfg(test)]
 mod tests {
+    use arrayvec::ArrayString;
+
+    use crate::structure::residue::ResidueName;
+
     use super::BindingSiteSpec;
 
     #[test]
@@ -81,7 +94,7 @@ mod tests {
         assert_eq!(
             site,
             BindingSiteSpec {
-                residue_name: "ATP".to_string(),
+                residue_name: ResidueName::parse("ATP"),
                 residue_number: 501,
                 chain_id: 'A',
                 distance_angstroms: 6.0,
@@ -96,7 +109,10 @@ mod tests {
             .parse()
             .expect("surrounding residue-name whitespace should be accepted");
 
-        assert_eq!(site.residue_name, "ATP");
+        assert_eq!(
+            site.residue_name,
+            ResidueName::Other(ArrayString::from("ATP").unwrap_or_default())
+        );
         assert_eq!(site.to_string(), "ATP:501:A:6");
     }
 

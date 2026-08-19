@@ -2,7 +2,7 @@ use nalgebra::Vector3;
 
 use crate::geo::point::Point;
 use crate::geo::point::Position;
-use crate::structure::residue::Residue;
+use crate::structure::residue::{Residue, ResidueName};
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
 
@@ -13,7 +13,7 @@ pub struct RawAtom {
     pub coor: Point,
     pub r: f64,
     pub name: String,
-    pub resn: String,
+    pub resn: ResidueName,
     pub chain_id: char,
     pub resi: i32,
     pub het: bool,
@@ -28,7 +28,7 @@ pub struct Atom {
     pub coor: Point,
     pub r: f64,                 // Van der Waals radius (A)
     pub name: String,           // Atom name, max 4 chars e.g. " CA "
-    pub resn: String,           // Residue name, max 3 chars e.g. "ALA"
+    pub resn: ResidueName,      // Residue name, max 3 chars e.g. "ALA"
     pub chain_id: char,         // Chain ID, single char e.g. 'A'
     pub resi: i32,              // Residue sequence number
     pub residue: Weak<Residue>, // Use a Weak to avoid circular strong reference to Residue
@@ -57,7 +57,7 @@ impl Default for RawAtom {
             coor: Point::zero(),
             r: 1.7,
             name: "    ".to_string(),
-            resn: "   ".to_string(),
+            resn: ResidueName::ALA,
             chain_id: ' ',
             resi: 0,
             het: false,
@@ -73,7 +73,7 @@ impl Default for Atom {
             coor: Point::zero(),
             r: 1.7,
             name: "    ".to_string(),
-            resn: "   ".to_string(),
+            resn: ResidueName::ALA,
             chain_id: ' ',
             resi: 0,
             residue: Weak::new(),
@@ -115,7 +115,7 @@ mod tests {
     fn test_atom_default_fields() {
         let a = Atom::default();
         assert_eq!(a.name, "    ");
-        assert_eq!(a.resn, "   ");
+        assert_eq!(a.resn, ResidueName::ALA);
         assert_eq!(a.chain_id, ' ');
         assert_eq!(a.resi, 0);
         assert!(!a.het);
