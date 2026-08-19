@@ -6,6 +6,8 @@ use crate::structure::residue::{Residue, ResidueName};
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
 
+const DEFAULT_ATOM_RADIUS: f64 = 0.0;
+
 /// Represent the pre-freeze mutable atom used
 /// during parsing and surface marking.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,18 +53,20 @@ impl Deref for RawAtom {
     }
 }
 
+/// Default implementation for [`RawAtom`] used for testing
+/// These values are neutral placeholders to represent an "unset" state
 impl Default for RawAtom {
     fn default() -> Self {
         RawAtom {
-            coor: Point::zero(),
-            r: 1.7,
-            name: "    ".to_string(),
-            resn: ResidueName::ALA,
-            chain_id: ' ',
-            resi: 0,
-            het: false,
-            model: 1,
-            is_surface: false,
+            coor: Point::zero(), // Origin point (0,0,0)
+            r: DEFAULT_ATOM_RADIUS,
+            name: "".to_string(), // Empty string
+            resn: ResidueName::Other(Default::default()),
+            chain_id: ' ',     // Space character
+            resi: 0,           // Residue numbers start at 1 in PDB file parsing, so 0 is "unset"
+            het: false,        // Not a HETATOM record, as for most protein atoms
+            model: 0,          // Model's are 1-indexed in PDB file parsing, so 0 is "unset"
+            is_surface: false, // Not a surface atom, as for most protein atoms
         }
     }
 }
@@ -70,16 +74,16 @@ impl Default for RawAtom {
 impl Default for Atom {
     fn default() -> Self {
         Atom {
-            coor: Point::zero(),
-            r: 1.7,
-            name: "    ".to_string(),
-            resn: ResidueName::ALA,
-            chain_id: ' ',
-            resi: 0,
-            residue: Weak::new(),
-            het: false,
-            model: 1,
-            is_surface: false,
+            coor: Point::zero(), // Origin point (0,0,0)
+            r: DEFAULT_ATOM_RADIUS,
+            name: "".to_string(), // Empty string
+            resn: ResidueName::Other(Default::default()),
+            chain_id: ' ',        // Space character
+            resi: 0,              // Residue numbers start at 1 in PDB file parsing, so 0 is "unset"
+            residue: Weak::new(), // Default Atom types do not have a Weak<Residue> ready to access
+            het: false,           // Not a HETATOM record, as for most protein atoms
+            model: 0,             // Model's are 1-indexed in PDB file parsing, so 0 is "unset"
+            is_surface: false,    // Not a surface atom, as for most protein atoms
         }
     }
 }
@@ -114,12 +118,12 @@ mod tests {
     #[test]
     fn test_atom_default_fields() {
         let a = Atom::default();
-        assert_eq!(a.name, "    ");
-        assert_eq!(a.resn, ResidueName::ALA);
+        assert_eq!(a.name, "");
+        assert_eq!(a.resn, ResidueName::Other(Default::default()));
         assert_eq!(a.chain_id, ' ');
         assert_eq!(a.resi, 0);
         assert!(!a.het);
-        assert_eq!(a.model, 1);
+        assert_eq!(a.model, 0);
         assert!(!a.is_surface);
     }
 
@@ -127,7 +131,7 @@ mod tests {
     fn test_atom_position_via_coor() {
         let a = Atom {
             coor: Point::new(1.0, 2.0, 3.0),
-            r: 1.7,
+            r: DEFAULT_ATOM_RADIUS,
             ..Atom::default()
         };
         assert_eq!(a.position().x, 1.0);
