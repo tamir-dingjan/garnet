@@ -31,7 +31,7 @@ const ATOM_OVERLAP_TOLERANCE: f64 = 1e-3;
 const HELPER_GRID_SPACING: f64 = 2.0;
 
 /// C-alpha atom name
-pub const CA_ATOM_NAME: &'static str = "CA";
+pub const CA_ATOM_NAME: &str = "CA";
 
 pub struct Molecule {
     pub path: String,                // Path to the PDB file
@@ -270,10 +270,10 @@ impl Molecule {
         // Mark residues missing atoms as defective
         // Residues with non-normal names are not marked defective
         for key in &order {
-            if let Some(num_heavy_atoms) = &key.2.min_heavy_atoms() {
-                if grouped[key].len() < *num_heavy_atoms {
-                    defective.insert((key.0, key.1));
-                }
+            if let Some(num_heavy_atoms) = &key.2.min_heavy_atoms()
+                && grouped[key].len() < *num_heavy_atoms
+            {
+                defective.insert((key.0, key.1));
             }
         }
 

@@ -42,13 +42,13 @@ pub struct Config {
 }
 
 /// Default configuration for the pipeline.
-/// Most of these values are based on the default parameters of 
+/// Most of these values are based on the default parameters of
 /// the ProBiS alignment algorithm.
 impl Default for Config {
     fn default() -> Self {
         Self {
             probe_radius: 1.4, // Radius of a water molecule for surface detection
-            grid_spacing: 5.0, 
+            grid_spacing: 5.0,
             thedron_cutoff: 9.0,
             graph_neighbor_search_radius: 15.0,
             graph_neighbor_add_tolerance: 2.0,
