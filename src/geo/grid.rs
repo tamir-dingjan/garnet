@@ -89,12 +89,9 @@ impl<T: Position> Grid<T> {
             position.position().z,
         );
 
-        // Get all cells within the search radius of the origin cell
-        let search_cells = origin_cell.get_cells_within_radius(cell_radius);
-
         // Collect the indices into &[T] from the search cells
-        let neighbor_indices: Vec<usize> = search_cells
-            .into_iter()
+        let neighbor_indices: Vec<usize> = origin_cell
+            .get_cells_within_radius(cell_radius)
             .filter(|cell| self.cells.contains_key(cell))
             .flat_map(|cell| self.cells.get(&cell))
             .flatten()
