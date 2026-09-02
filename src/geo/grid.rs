@@ -6,7 +6,7 @@ use crate::geo::{
 };
 use std::collections::HashMap;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub struct CellKey {
     x: i32,
     y: i32,
@@ -16,21 +16,16 @@ pub struct CellKey {
 impl CellKey {
     /// Returns a list of all cell positions within the given radius relative to self.
     /// Each of the returned CellKeys can be used as a key into the grid's cell map.
-    fn get_cells_within_radius(self, radius: i32) -> Vec<CellKey> {
-        let mut cells = Vec::new();
-        for i in -radius..=radius {
-            for j in -radius..=radius {
-                for k in -radius..=radius {
-                    let search_cell = CellKey {
-                        x: self.x + i,
-                        y: self.y + j,
-                        z: self.z + k,
-                    };
-                    cells.push(search_cell);
-                }
-            }
-        }
-        cells
+    fn get_cells_within_radius(self, radius: i32) -> impl Iterator<Item = CellKey> {
+        (-radius..=radius).flat_map(move |i| {
+            (-radius..=radius).flat_map(move |j| {
+                (-radius..=radius).map(move |k| CellKey {
+                    x: self.x + i,
+                    y: self.y + j,
+                    z: self.z + k,
+                })
+            })
+        })
     }
 }
 
